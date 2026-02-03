@@ -53,7 +53,7 @@ BUILTINS = {
     "exit": lambda code=0, *_: sys.exit(int(code)),
     "pwd": lambda: print(os.getcwd()),
     "cd": lambda path=".": (
-        os.chdir(path) if os.path.isdir(path)
+        os.chdir(os.path.expanduser(path)) if os.path.isdir(os.path.expanduser(path))
         else print(f"cd: {path}: No such file or directory")
     ),
 
