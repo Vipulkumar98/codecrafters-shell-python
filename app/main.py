@@ -1,6 +1,47 @@
 import sys
 import os
 
+
+def tokenize_command(command_line):
+    tokens = []
+    current_token = []
+    in_quotes = False
+    i = 0
+    
+    while i < len(command_line):
+        char = command_line[i]
+        
+        if char == "'" and not in_quotes:
+            # Start of quoted section
+            in_quotes = True
+            i += 1
+            continue
+        elif char == "'" and in_quotes:
+            # End of quoted section
+            in_quotes = False
+            i += 1
+            continue
+        elif in_quotes:
+            # Inside quotes: treat everything literally
+            current_token.append(char)
+            i += 1
+        elif char in (' ', '\t'):
+            # Whitespace outside quotes: token delimiter
+            if current_token:
+                tokens.append(''.join(current_token))
+                current_token = []
+            i += 1
+        else:
+            # Regular character outside quotes
+            current_token.append(char)
+            i += 1
+    
+    # Add the last token if any
+    if current_token:
+        tokens.append(''.join(current_token))
+    
+    return tokens
+
 def type_command(cmd):
     if cmd in BUILTINS:
         print(f"{cmd} is a shell builtin")
@@ -69,7 +110,10 @@ def main():
             sys.stdout.flush()
 
             # Wait for user input
-            command = input().split()
+            # command = input().split()
+
+            command = tokenize_command(input())
+
             cmd = command[0]
             args = command[1:]
 
