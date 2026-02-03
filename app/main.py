@@ -51,6 +51,7 @@ BUILTINS = {
     "type": type_command,
     "echo": lambda *args: print(" ".join(args)),
     "exit": lambda code=0, *_: sys.exit(int(code)),
+    "pwd": lambda: print(os.getcwd())
 }
 
 def main():
