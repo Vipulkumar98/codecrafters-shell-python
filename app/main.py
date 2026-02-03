@@ -5,23 +5,24 @@ import os
 def tokenize_command(command_line):
     tokens = []
     current_token = []
-    in_quotes = False
+    in_single_quotes = False
+    in_double_quotes = False
     i = 0
     
     while i < len(command_line):
         char = command_line[i]
         
-        if char == "'" and not in_quotes:
+        if char == "'" and not in_double_quotes:
             # Start of quoted section
-            in_quotes = True
+            in_single_quotes = not in_single_quotes
             i += 1
             continue
-        elif char == "'" and in_quotes:
-            # End of quoted section
-            in_quotes = False
+        elif char == '"' and not in_single_quotes:
+            # Start of quoted section
+            in_double_quotes = not in_double_quotes
             i += 1
             continue
-        elif in_quotes:
+        elif in_single_quotes or in_double_quotes:
             # Inside quotes: treat everything literally
             current_token.append(char)
             i += 1
