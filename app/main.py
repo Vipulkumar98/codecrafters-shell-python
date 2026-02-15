@@ -11,6 +11,18 @@ def tokenize_command(command_line):
     
     while i < len(command_line):
         char = command_line[i]
+
+        # Handle escaped characters
+        if char == '\\' and not in_single_quotes and not in_double_quotes:
+            i += 1
+            if i < len(command_line):
+                current_token.append(command_line[i])
+                i += 1
+            else:
+                current_token.append('\\')
+                i += 1
+            continue
+
         
         if char == "'" and not in_double_quotes:
             # Start of quoted section
