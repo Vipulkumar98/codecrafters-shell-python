@@ -103,7 +103,29 @@ def find_executable(cmd):
             return full_path
     return None
 
-def run_external(cmd, args):
+
+def parse_redirect(args):
+    clean_tokens = []
+    stdout_file = None
+    i = 0
+    while i < len(args):
+        if args[i] in ('>', '1>'):
+            if i + 1 >= len(args):
+                print("Syntax error: expected filename after redirection operator")
+                return None, None
+            stdout_file = args[i + 1]
+            i += 2  # Skip the operator and the filename
+        else:
+            clean_tokens.append(args[i])
+            i += 1
+    return clean_tokens, stdout_file
+
+def apply_redirect(stdout_file):
+    fd = os.open(stdout_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
+    os.dup2(fd, 1)  # Redirect stdout to the file
+    os.close(fd)
+
+def run_external(cmd, args, stdout_file=None):
     executable = find_executable(cmd)
 
     if executable is None:
@@ -113,6 +135,9 @@ def run_external(cmd, args):
     pid = os.fork()
 
     if pid == 0:
+        if stdout_file:
+            apply_redirect(stdout_file)
+
         # Child process
         try:
             os.execv(executable, [cmd] + args)
@@ -150,14 +175,30 @@ def main():
 
             command = tokenize_command(input())
 
+            # if not command:
+            #     continue
+
+
             cmd = command[0]
             args = command[1:]
 
+            clean_args, stdout_file = parse_redirect(args)
+
             if cmd in BUILTINS:
-                BUILTINS[cmd](*args)
+                if stdout_file:
+                    with open(stdout_file, 'w') as f:
+                        old_stdout = sys.stdout
+                        sys.stdout = f
+                        try:
+                            BUILTINS[cmd](*clean_args)
+                        finally:
+                            sys.stdout = old_stdout
+                else:
+                    BUILTINS[cmd](*clean_args)
+            
             else:
                 # print(f"{cmd}: command not found")
-                run_external(cmd, args)
+                run_external(cmd, clean_args, stdout_file)
         except EOFError:
             print()
             break
