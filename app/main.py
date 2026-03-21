@@ -34,10 +34,33 @@ def tokenize_command(command_line):
             in_double_quotes = not in_double_quotes
             i += 1
             continue
-        elif in_single_quotes or in_double_quotes:
+        # elif in_single_quotes or in_double_quotes:
+        #     # Inside quotes: treat everything literally
+        #     current_token.append(char)
+        #     i += 1
+        elif in_single_quotes:
             # Inside quotes: treat everything literally
             current_token.append(char)
             i += 1
+        elif in_double_quotes:
+            if char == '\\':
+                i += 1
+                if i < len(command_line):
+                    next_char = command_line[i]
+                    if next_char in ('"', '\\'):        
+                        current_token.append(next_char) 
+                    else:
+                        # For all other characters after \, keep BOTH \ and the char
+                        current_token.append('\\')
+                        current_token.append(next_char)
+                    i += 1
+                else:
+                    # \ at the very end of input → keep the \
+                    current_token.append('\\')
+            else:
+                # normal character inside ""
+                current_token.append(char)
+                i += 1
         elif char in (' ', '\t'):
             # Whitespace outside quotes: token delimiter
             if current_token:
