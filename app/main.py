@@ -106,47 +106,59 @@ def find_executable(cmd):
 
 def parse_redirect(args):
     clean_tokens = []
-    stdout_file = None
+    stdout_file = stderr_file = None
+    stdout_append = stderr_append = False
     i = 0
     while i < len(args):
-        if args[i] in ('>', '1>'):
+        token = args[i]
+        if token in ('>', '1>', '>>', '1>>'):
             if i + 1 >= len(args):
                 print("Syntax error: expected filename after redirection operator")
-                return None, None
+                return None, None, None, False, False
             stdout_file = args[i + 1]
-            i += 2  # Skip the operator and the filename
+            stdout_append = token in ('>>', '1>>')
+            i += 2
+        elif token in ('2>', '2>>'):
+            if i + 1 >= len(args):
+                print("Syntax error: expected filename after redirection operator")
+                return None, None, None, False, False
+            stderr_file = args[i + 1]
+            stderr_append = (token == '2>>')
+            i += 2
         else:
-            clean_tokens.append(args[i])
+            clean_tokens.append(token)
             i += 1
-    return clean_tokens, stdout_file
+    return clean_tokens, stdout_file, stderr_file, stdout_append, stderr_append
 
-def apply_redirect(stdout_file):
-    fd = os.open(stdout_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
-    os.dup2(fd, 1)  # Redirect stdout to the file
-    os.dup2(fd, 2)  # Redirect stderr to the file
-    os.close(fd)
+def apply_redirect(stdout_file=None, stderr_file=None, stdout_append=False, stderr_append=False):
+    if stdout_file:
+        flags = os.O_WRONLY | os.O_CREAT | (os.O_APPEND if stdout_append else os.O_TRUNC)
+        fd = os.open(stdout_file, flags, 0o644)
+        os.dup2(fd, 1)
+        os.close(fd)
+    if stderr_file:
+        flags = os.O_WRONLY | os.O_CREAT | (os.O_APPEND if stderr_append else os.O_TRUNC)
+        fd = os.open(stderr_file, flags, 0o644)
+        os.dup2(fd, 2)
+        os.close(fd)
 
-def run_external(cmd, args, stdout_file=None):
+def run_external(cmd, args, stdout_file=None, stderr_file=None, stdout_append=False, stderr_append=False):
     executable = find_executable(cmd)
-
     if executable is None:
         print(f"{cmd}: command not found")
         return
-
+    # Fork a child process to run the external command
     pid = os.fork()
-
+    # In the child process, apply redirection and execute the command
     if pid == 0:
-        if stdout_file:
-            apply_redirect(stdout_file)
-
-        # Child process
+        apply_redirect(stdout_file, stderr_file, stdout_append, stderr_append)
         try:
+            # Replace the current process with the external command
             os.execv(executable, [cmd] + args)
         except Exception as e:
             print(f"exec error: {e}", file=sys.stderr)
             os._exit(1)
     else:
-        # Parent process waits
         os.waitpid(pid, 0)
 
 
@@ -183,23 +195,32 @@ def main():
             cmd = command[0]
             args = command[1:]
 
-            clean_args, stdout_file = parse_redirect(args)
+            clean_args, stdout_file, stderr_file, stdout_append, stderr_append = parse_redirect(args)
+
+            if clean_args is None:
+                continue
 
             if cmd in BUILTINS:
-                if stdout_file:
-                    with open(stdout_file, 'w') as f:
-                        old_stdout = sys.stdout
-                        sys.stdout = f
-                        try:
-                            BUILTINS[cmd](*clean_args)
-                        finally:
-                            sys.stdout = old_stdout
-                else:
+                old_stdout = sys.stdout
+                old_stderr = sys.stderr
+                out_f = err_f = None
+                try:
+                    if stdout_file:
+                        out_f = open(stdout_file, 'a' if stdout_append else 'w')
+                        sys.stdout = out_f
+                    if stderr_file:
+                        err_f = open(stderr_file, 'a' if stderr_append else 'w')
+                        sys.stderr = err_f
                     BUILTINS[cmd](*clean_args)
-            
+                finally:
+                    sys.stdout = old_stdout
+                    sys.stderr = old_stderr
+                    if out_f:
+                        out_f.close()
+                    if err_f:
+                        err_f.close()
             else:
-                # print(f"{cmd}: command not found")
-                run_external(cmd, clean_args, stdout_file)
+                run_external(cmd, clean_args, stdout_file, stderr_file, stdout_append, stderr_append)
         except EOFError:
             print()
             break
