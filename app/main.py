@@ -1,6 +1,6 @@
 import sys
 import os
-
+import readline
 
 def tokenize_command(command_line):
     tokens = []
@@ -174,9 +174,20 @@ BUILTINS = {
 
 }
 
+def completer(text, state):
+    matches = [cmd for cmd in BUILTINS if cmd.startswith(text)]
+
+    if len(matches) == 1:
+        matches = [matches[0] + " "]
+
+    return matches[state] if state < len(matches) else None
+
 def main():
     # Uncomment this block to pass the first stage
-
+    readline.set_completer(completer)
+    readline.parse_and_bind("tab: complete")
+    # readline.set_completer_delims(" \t\n")
+    
     while True:
         try:
 
