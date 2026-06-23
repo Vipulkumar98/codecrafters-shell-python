@@ -8,5 +8,5 @@
 
 # Exit early if any commands fail
 set -e
-
+export PIPENV_VERBOSITY=-1
 exec pipenv run python3 -u -m app.main "$@"

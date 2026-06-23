@@ -123,6 +123,7 @@ def parse_redirect(args):
 def apply_redirect(stdout_file):
     fd = os.open(stdout_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
     os.dup2(fd, 1)  # Redirect stdout to the file
+    os.dup2(fd, 2)  # Redirect stderr to the file
     os.close(fd)
 
 def run_external(cmd, args, stdout_file=None):
