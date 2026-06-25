@@ -175,10 +175,25 @@ BUILTINS = {
 }
 
 def completer(text, state):
+    # check the built-in commands as well as the executables in the PATH for matches
     matches = [cmd for cmd in BUILTINS if cmd.startswith(text)]
 
+    path_env = os.environ.get("PATH", "")
+    for directory in path_env.split(os.pathsep):
+        if not directory:
+            continue
+        try:
+            for filename in os.listdir(directory):
+                if filename.startswith(text) and os.access(os.path.join(directory, filename), os.X_OK):
+                    if filename not in matches:
+                        matches.append(filename)
+        except (PermissionError, FileNotFoundError):
+            continue
+
+    matches.sort()
+    
     if len(matches) == 1:
-        matches = [matches[0] + " "]
+        matches[0] = matches[0] + " "
 
     return matches[state] if state < len(matches) else None
 
